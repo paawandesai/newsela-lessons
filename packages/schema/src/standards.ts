@@ -5,8 +5,21 @@ export type Framework = "ca_ccss_ela" | "ca_eld" | "media_literacy";
 const CCSS = new Set<string>(grade6.ca_ccss_ela);
 const ELD = new Set<string>(grade6.ca_eld);
 
-/** Matches CCSS-style codes (RL.6.9, L.6.4.b) and CA ELD codes (ELD.PI.6.6, ELD.PII.6.2.a). */
-const CODE_PATTERN = /\b(?:ELD\.P(?:I|II)\.\d{1,2}\.\d{1,2}(?:\.[a-z])?|(?:RL|RI|RF|W|SL|L)\.\d{1,2}\.\d{1,2}(?:\.[a-z])?)\b/g;
+/**
+ * Matches CCSS-style codes (RL.6.9, L.6.4.b) and CA ELD codes, including the
+ * forms seen in published lessons: ELD.PI.6.6, ELD.PI.6.6a.Br, ELD.PII.6.2.a.Em.
+ */
+const CODE_PATTERN =
+  /\b(?:ELD\.P(?:I|II)\.\d{1,2}\.\d{1,2}(?:\.?[a-z])?(?:\.(?:Em|Ex|Br))?|(?:RL|RI|RF|W|SL|L)\.\d{1,2}\.\d{1,2}(?:\.[a-z])?)(?![\w.]*\w)/g;
+
+export type ProficiencyLevel = "Em" | "Ex" | "Br";
+
+/** Splits an ELD proficiency level off and normalizes "6a" to "6.a". CCSS codes pass through. */
+export function normalizeCode(code: string): { base: string; level: ProficiencyLevel | null } {
+  const m = /^(ELD\.P(?:I|II)\.\d{1,2}\.\d{1,2})\.?([a-z])?(?:\.(Em|Ex|Br))?$/.exec(code);
+  if (!m) return { base: code, level: null };
+  return { base: m[2] ? `${m[1]}.${m[2]}` : m[1]!, level: (m[3] as ProficiencyLevel) ?? null };
+}
 
 export function extractCodes(cell: string | undefined | null): string[] {
   if (!cell) return [];
@@ -14,8 +27,9 @@ export function extractCodes(cell: string | undefined | null): string[] {
 }
 
 export function frameworkOf(code: string): Framework | null {
-  if (CCSS.has(code)) return "ca_ccss_ela";
-  if (ELD.has(code)) return "ca_eld";
+  const { base } = normalizeCode(code);
+  if (CCSS.has(base)) return "ca_ccss_ela";
+  if (ELD.has(base)) return "ca_eld";
   return null;
 }
 

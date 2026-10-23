@@ -1,6 +1,6 @@
 import { hash } from "@node-rs/argon2";
-import { allCodes, officialUrl } from "@nl/schema";
-import { db, sqlClient, standards, users } from "./index";
+import { allCodes, DEFAULT_SYSTEM_PROMPT, officialUrl } from "@nl/schema";
+import { db, promptVersions, sqlClient, standards, users } from "./index";
 
 // Demo accounts only. Real deployments create users through an admin flow.
 const password = process.env.SEED_PASSWORD;
@@ -22,4 +22,11 @@ console.log(`seeded ${demo.length} demo accounts`);
 const codes = allCodes().map((c) => ({ ...c, officialUrl: officialUrl(c.code) }));
 await db.insert(standards).values(codes).onConflictDoNothing({ target: standards.code });
 console.log(`seeded ${codes.length} standards codes`);
+
+// Prompt v1. Later versions are created in the app and never overwrite this row.
+await db
+  .insert(promptVersions)
+  .values({ version: 1, systemPrompt: DEFAULT_SYSTEM_PROMPT, notes: "Initial prompt" })
+  .onConflictDoNothing({ target: promptVersions.version });
+console.log("seeded prompt v1");
 await sqlClient.end();

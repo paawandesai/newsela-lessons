@@ -1,7 +1,7 @@
 {
  "_source": {
   "ca_ccss_ela": "California Common Core State Standards for ELA/Literacy (CDE), grade 6, codes parsed from https://www.cde.ca.gov/be/st/ss/documents/finalelaccssstandards.pdf on 2026-10-23",
-  "ca_eld": "California ELD Standards, grade 6 Parts I and II, codes only. https://www.cde.ca.gov/sp/el/er/eldstandards.asp",
+  "ca_eld": "California ELD Standards, grade 6, Parts I and II, codes only, checked against https://www.cde.ca.gov/sp/el/er/documents/eldstndspublication14.pdf on 2026-10-23. Proficiency levels (Em, Ex, Br) are accepted as suffixes.",
   "note": "Codes only. Standard text is not stored; link to the official source."
  },
  "ca_ccss_ela": [
@@ -94,6 +94,9 @@
   "ELD.PI.6.4",
   "ELD.PI.6.5",
   "ELD.PI.6.6",
+  "ELD.PI.6.6.a",
+  "ELD.PI.6.6.b",
+  "ELD.PI.6.6.c",
   "ELD.PI.6.7",
   "ELD.PI.6.8",
   "ELD.PI.6.9",
