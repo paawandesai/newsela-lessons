@@ -64,7 +64,7 @@ Or run the whole stack: `docker compose up --build`, then open http://localhost.
 
 ## Deployment
 
-One AWS Lightsail instance (4 GB, us-west-2) runs the compose stack behind Caddy, with a static IP and an `sslip.io` hostname. Only ports 80 and 443 are open, plus 22 for Lightsail's browser SSH. `python deploy/deploy.py` creates the instance; its first-boot script installs Docker, clones the repo with a read-only deploy token, writes `.env`, builds, migrates and seeds. Secrets are generated on first run and kept only in the instance's `.env` (they also travel in the instance's user data, which anyone with Lightsail access to the account can read).
+One AWS Lightsail instance (4 GB, us-west-2) runs the compose stack behind Caddy, with a static IP and an `sslip.io` hostname. Only ports 80 and 443 are open, plus 22 for Lightsail's browser SSH. `python deploy/deploy.py` creates the instance; its first-boot script installs Docker, clones the repo with a read-only deploy token, writes `.env`, builds, migrates and seeds. A systemd timer then checks the deployed branch every two minutes and rebuilds when it changes (`deploy/update.sh`). Secrets are generated on first run and kept only in the instance's `.env` (they also travel in the instance's user data, which anyone with Lightsail access to the account can read).
 
 ## Security
 

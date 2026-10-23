@@ -47,4 +47,6 @@ docker compose build
 stop_log
 docker compose up -d
 docker compose run --rm migrate pnpm --filter @nl/db seed
+# Later pushes to the branch are picked up within a few minutes.
+REPO_URL="$REPO_URL" BRANCH="$BRANCH" bash deploy/install-updater.sh
 echo "lesson-studio: ready at https://$SITE_HOST"

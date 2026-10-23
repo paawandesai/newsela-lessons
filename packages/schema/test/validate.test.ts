@@ -82,7 +82,13 @@ describe("validateLesson", () => {
     expect(codes(l)).toEqual(expect.arrayContaining(["unknown_standard", "focus_not_taught"]));
   });
 
-  it("rejects quotes and page numbers not in the outline", () => {
+  it("ignores sentence frames when looking for quotations", () => {
+    const l = lesson();
+    l.sections[0]!.parts[0]!.blocks.push({ type: "sentence_starter", text: 'Try: "I think ___ means ___ because the root ___ means ___."' });
+    expect(codes(l)).not.toContain("unsourced_quote");
+  });
+
+  it("flags quotes and page numbers not in the outline", () => {
     const l = lesson();
     l.sections[0]!.parts[0]!.blocks.push({ type: "teacher_move", move: "say", text: 'Read aloud: "The fog rolled over the empty harbor like a heavy gray blanket." See p. 42.' });
     expect(codes(l)).toEqual(expect.arrayContaining(["unsourced_quote", "unsourced_page"]));

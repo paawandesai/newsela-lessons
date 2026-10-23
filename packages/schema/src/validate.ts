@@ -98,7 +98,10 @@ export function validateLesson(lesson: Lesson, row: RowContext): Flag[] {
   const body = strings.join("\n");
   const source = normalizeQuotes(row.sourceText).toLowerCase();
   for (const q of strings.flatMap(quotedSpans)) {
-    if (!source.includes(q.toLowerCase())) flags.push(err("unsourced_quote", `Quote not found in the outline or a supplied text: "${q.slice(0, 80)}"`));
+    // A warning, not an error: most hits are model-written examples (a mentor paragraph, a sample claim).
+    // The reviewer confirms the words are original and not from the novel or an article.
+    if (!source.includes(q.toLowerCase()))
+      flags.push(warn("unsourced_quote", `Quoted text not found in the outline. Confirm it is original, not from a source text: "${q.slice(0, 80)}"`));
   }
   for (const pages of body.matchAll(/\bpp?\.\s*(\d+(?:\s*[–-]\s*\d+)?)/g)) {
     const nums = pages[1]!.split(/[–-]/).map((n) => n.trim());
@@ -129,7 +132,7 @@ function stringsIn(value: unknown): string[] {
 function quotedSpans(text: string): string[] {
   return [...normalizeQuotes(text).matchAll(/"([^"]{20,600})"/g)]
     .map((m) => m[1]!.trim())
-    .filter((s) => s.split(/\s+/).length >= 8 && !s.includes("____"));
+    .filter((s) => s.split(/\s+/).length >= 8 && !/__/.test(s)); // "__" marks a sentence frame, not a quotation
 }
 
 function dedupe(flags: Flag[]): Flag[] {
