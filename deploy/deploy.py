@@ -85,7 +85,7 @@ def main() -> None:
     bundle = next(
         b["bundleId"]
         for b in sorted(ls.get_bundles()["bundles"], key=lambda b: b["price"])
-        if b["isActive"] and b["ramSizeInGb"] == 4.0 and "LINUX_UNIX" in b["supportedPlatforms"]
+        if b["isActive"] and b["ramSizeInGb"] == 4.0 and "LINUX_UNIX" in b["supportedPlatforms"] and b.get("publicIpv4AddressCount", 0) >= 1
     )
     blueprint = next(
         b["blueprintId"]

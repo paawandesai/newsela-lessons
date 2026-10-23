@@ -1,14 +1,16 @@
 #!/bin/bash
 # First-boot script for the Lightsail instance. deploy.py fills in the
 # __PLACEHOLDERS__ and passes this as user data; it runs once, as root.
-set -euo pipefail
 mkdir -p /var/log/lesson-studio
+echo "boot $(date -u)" > /var/log/lesson-studio/status.txt
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a
 LOG=/var/log/lesson-studio/setup.log
 exec > "$LOG" 2>&1
 
 # While setting up (and if setup fails), serve the setup log on port 80 so progress
 # can be checked over HTTP without SSH. The log holds package output, never secrets.
-serve_log() { (cd /var/log/lesson-studio && nohup python3 -m http.server 80 >/dev/null 2>&1 &) ; }
+serve_log() { (cd /var/log/lesson-studio && setsid nohup python3 -m http.server 80 </dev/null >/dev/null 2>&1 &) ; }
 stop_log() { pkill -f "http.server 80" || true; }
 trap 'echo "SETUP FAILED at line $LINENO"; stop_log; serve_log' ERR
 serve_log
