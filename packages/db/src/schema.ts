@@ -92,6 +92,8 @@ export type Flag = {
   severity: FlagSeverity;
   message: string;
   field?: string;
+  /** Choices offered to the expert, when the flag is a decision. */
+  options?: string[];
   /** Set when an expert accepts or overrides the flag. */
   resolution?: { by: string; at: string; note?: string };
 };
