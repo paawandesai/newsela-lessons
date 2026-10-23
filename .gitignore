@@ -1,0 +1,18 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Never commit client material or crawled content (see project guardrails)
+private/
+data/outlines/
+data/crawl-cache/
+*.xlsx
+*.csv
+!packages/schema/test/fixtures/*.csv
+brief*.md
