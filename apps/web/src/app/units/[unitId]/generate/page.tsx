@@ -73,6 +73,11 @@ export default async function GeneratePage({ params }: { params: Promise<{ unitI
             <Link className="btn" href={`/units/${unit.id}`}>
               Outline
             </Link>
+            {done > 0 && (
+              <Link className="btn btn-primary" href={`/units/${unit.id}/review`}>
+                Open review queue
+              </Link>
+            )}
           </div>
         </div>
 

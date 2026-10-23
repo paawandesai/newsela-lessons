@@ -4,13 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./editor": "./src/editor.ts",
+    "./render": "./src/render.ts"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "prosemirror-model": "^1.25.12",
+    "y-prosemirror": "^1.3.7",
+    "yjs": "^13.6.33",
     "zod": "^4.1.0"
   },
   "devDependencies": {

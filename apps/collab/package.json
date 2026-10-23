@@ -9,8 +9,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hocuspocus/extension-database": "^4.7.1",
+    "@hocuspocus/server": "^4.7.1",
     "@nl/db": "workspace:*",
-    "tsx": "^4.19.0"
+    "@nl/schema": "workspace:*",
+    "jose": "^6.2.13",
+    "tsx": "^4.19.0",
+    "yjs": "^13.6.33"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
