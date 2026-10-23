@@ -1,5 +1,6 @@
 # One image for every app; docker-compose picks the command.
-FROM node:22-slim AS base
+# Official images via the AWS public mirror, which avoids Docker Hub pull limits.
+FROM public.ecr.aws/docker/library/node:22-slim AS base
 RUN corepack enable
 WORKDIR /app
 

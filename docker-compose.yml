@@ -1,7 +1,17 @@
 # Local and single-host production stack. `docker compose up --build`.
+# Every app runs from one image, built once with the browser-facing collab URL baked in.
+x-app: &app
+  image: lesson-studio:latest
+  build:
+    context: .
+    target: runtime
+    args:
+      NEXT_PUBLIC_COLLAB_URL: ${NEXT_PUBLIC_COLLAB_URL:-ws://localhost:1234}
+
 services:
   postgres:
-    image: postgres:16-alpine
+    restart: unless-stopped
+    image: public.ecr.aws/docker/library/postgres:16-alpine
     environment:
       POSTGRES_USER: nl
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nl}
@@ -13,18 +23,20 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    restart: unless-stopped
+    image: public.ecr.aws/docker/library/redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes: [redisdata:/data]
 
   migrate:
-    build: { context: ., target: runtime }
+    <<: *app
     command: ["pnpm", "--filter", "@nl/db", "migrate"]
     environment: &appenv
       DATABASE_URL: postgres://nl:${POSTGRES_PASSWORD:-nl}@postgres:5432/newsela_lessons
       REDIS_URL: redis://redis:6379
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
       GENERATION_MODEL: ${GENERATION_MODEL:-claude-opus-5-5}
       UNIT_SPEND_CAP_USD: ${UNIT_SPEND_CAP_USD:-25}
       GENERATION_CONCURRENCY: ${GENERATION_CONCURRENCY:-3}
@@ -33,11 +45,8 @@ services:
       postgres: { condition: service_healthy }
 
   web:
-    build:
-      context: .
-      target: runtime
-      args:
-        NEXT_PUBLIC_COLLAB_URL: ${NEXT_PUBLIC_COLLAB_URL:-ws://localhost:1234}
+    <<: *app
+    restart: unless-stopped
     command: ["pnpm", "--filter", "@nl/web", "start"]
     environment: *appenv
     ports: ["3000:3000"]
@@ -46,7 +55,8 @@ services:
       redis: { condition: service_started }
 
   worker:
-    build: { context: ., target: runtime }
+    <<: *app
+    restart: unless-stopped
     command: ["pnpm", "--filter", "@nl/worker", "start"]
     environment: *appenv
     depends_on:
@@ -54,13 +64,26 @@ services:
       redis: { condition: service_started }
 
   collab:
-    build: { context: ., target: runtime }
+    <<: *app
+    restart: unless-stopped
     command: ["pnpm", "--filter", "@nl/collab", "start"]
     environment: *appenv
     ports: ["1234:1234"]
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  caddy:
+    restart: unless-stopped
+    image: public.ecr.aws/docker/library/caddy:2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [web, collab]
+
 volumes:
   pgdata:
   redisdata:
+  caddydata:
