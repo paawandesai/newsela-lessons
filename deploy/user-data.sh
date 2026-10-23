@@ -2,7 +2,16 @@
 # First-boot script for the Lightsail instance. deploy.py fills in the
 # __PLACEHOLDERS__ and passes this as user data; it runs once, as root.
 set -euo pipefail
-exec > /var/log/lesson-studio-setup.log 2>&1
+mkdir -p /var/log/lesson-studio
+LOG=/var/log/lesson-studio/setup.log
+exec > "$LOG" 2>&1
+
+# While setting up (and if setup fails), serve the setup log on port 80 so progress
+# can be checked over HTTP without SSH. The log holds package output, never secrets.
+serve_log() { (cd /var/log/lesson-studio && nohup python3 -m http.server 80 >/dev/null 2>&1 &) ; }
+stop_log() { pkill -f "http.server 80" || true; }
+trap 'echo "SETUP FAILED at line $LINENO"; stop_log; serve_log' ERR
+serve_log
 
 SITE_HOST="__SITE_HOST__"
 REPO_URL="__REPO_URL__"
@@ -32,6 +41,8 @@ __ENV_FILE__
 ENV
 chmod 600 .env
 
-docker compose up -d --build
+docker compose build
+stop_log
+docker compose up -d
 docker compose run --rm migrate pnpm --filter @nl/db seed
 echo "lesson-studio: ready at https://$SITE_HOST"
