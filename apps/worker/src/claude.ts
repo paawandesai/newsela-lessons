@@ -38,9 +38,31 @@ export type Generation =
   | { kind: "refused"; model: string; usage: Usage; detail: string }
   | { kind: "truncated" | "unparseable"; model: string; usage: Usage };
 
-/** One lesson, one request. Streams so long outputs don't hit HTTP timeouts. */
+const SECTION_KINDS = ["launch", "learning_in_action", "look_back", "homework"];
+const complete = (json: unknown) => {
+  const kinds = new Set(((json as { sections?: { kind?: string }[] })?.sections ?? []).map((s) => s.kind));
+  return SECTION_KINDS.every((k) => kinds.has(k));
+};
+
+/**
+ * One lesson. Occasionally the model closes the JSON after the first section;
+ * that output is valid but incomplete, so it gets one more attempt and the
+ * usage of both counts toward the spend.
+ */
 export async function generateLesson(system: string, user: string): Promise<Generation> {
   if (process.env.GENERATION_FAKE === "1") return fakeLesson(user);
+  const first = await requestLesson(system, user);
+  if (first.kind !== "ok" || complete(first.json)) return first;
+  const second = await requestLesson(system, user);
+  const usage = {
+    input_tokens: first.usage.input_tokens + second.usage.input_tokens,
+    output_tokens: first.usage.output_tokens + second.usage.output_tokens,
+  };
+  return { ...second, usage };
+}
+
+/** One request. Streams so long outputs don't hit HTTP timeouts. */
+async function requestLesson(system: string, user: string): Promise<Generation> {
   const stream = client.beta.messages.stream({
     model: MODEL,
     max_tokens: MAX_TOKENS,
