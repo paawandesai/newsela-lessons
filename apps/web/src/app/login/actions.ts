@@ -1,7 +1,7 @@
 "use server";
 
 import { verify } from "@node-rs/argon2";
-import { eq } from "drizzle-orm";
+import { eq } from "@nl/db/orm";
 import { redirect } from "next/navigation";
 import { db, users } from "@nl/db";
 import { endSession, startSession } from "@/lib/session";

@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq } from "@nl/db/orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditLog, db, units } from "@nl/db";

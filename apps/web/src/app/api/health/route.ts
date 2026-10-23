@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql } from "@nl/db/orm";
 import { db } from "@nl/db";
 
 export const dynamic = "force-dynamic";

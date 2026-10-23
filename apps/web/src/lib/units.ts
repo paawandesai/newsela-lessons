@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "@nl/db/orm";
 import { auditLog, db, lessons, outlineRows, units, type Flag } from "@nl/db";
 import { parseOutline, type ParsedOutline } from "@nl/schema";
 import type { SessionUser } from "./session";

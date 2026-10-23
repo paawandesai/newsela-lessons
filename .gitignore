@@ -17,3 +17,4 @@ data/crawl-cache/
 !packages/schema/test/fixtures/*.csv
 brief*.md
 *.tsbuildinfo
+*.rdb

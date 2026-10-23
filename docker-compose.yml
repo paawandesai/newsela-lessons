@@ -27,6 +27,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GENERATION_MODEL: ${GENERATION_MODEL:-claude-opus-5-5}
       UNIT_SPEND_CAP_USD: ${UNIT_SPEND_CAP_USD:-25}
+      GENERATION_CONCURRENCY: ${GENERATION_CONCURRENCY:-3}
+      NODE_ENV: production
     depends_on:
       postgres: { condition: service_healthy }
 
