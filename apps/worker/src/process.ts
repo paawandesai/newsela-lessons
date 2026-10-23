@@ -13,7 +13,8 @@ import {
   units,
   type Flag,
 } from "@nl/db";
-import { buildUserMessage, hasBlocking, Lesson, validateLesson } from "@nl/schema";
+import { ZodError } from "zod";
+import { buildUserMessage, fromWire, hasBlocking, validateLesson, type Lesson } from "@nl/schema";
 import { costUsd, generateLesson, MODEL } from "./claude";
 
 /** Reserved against the run's cap before each call, then trued up to the real cost. */
@@ -88,14 +89,20 @@ export async function processJob(jobId: string): Promise<void> {
     return;
   }
 
-  const parsed = Lesson.safeParse(result.json);
+  // The model writes the flat wire format; what is stored is the Lesson. Unparseable output is kept as-is for inspection.
+  let parsed: { success: true; data: Lesson } | { success: false; error: unknown };
+  try {
+    parsed = { success: true, data: fromWire(result.json) };
+  } catch (error) {
+    parsed = { success: false, error };
+  }
   let flags: Flag[];
   if (parsed.success) {
     flags = validateLesson(parsed.data, rowContext(row));
     if (parsed.data.frontMatter.lessonNumber !== row.lessonNumber)
       flags.push({ code: "lesson_number", severity: "error", message: `Generated as lesson ${parsed.data.frontMatter.lessonNumber}, not ${row.lessonNumber}.` });
   } else {
-    flags = [{ code: "invalid_output", severity: "error", message: `Output does not match the lesson format: ${parsed.error.issues[0]?.message ?? "unknown"}` }];
+    flags = [{ code: "invalid_output", severity: "error", message: `Output does not match the lesson format: ${parsed.error instanceof ZodError ? (parsed.error.issues[0]?.message ?? "unknown") : String(parsed.error)}` }];
   }
   const blocked = hasBlocking(flags);
 
@@ -105,7 +112,7 @@ export async function processJob(jobId: string): Promise<void> {
       .values({
         lessonId: lesson.id,
         source: "ai",
-        content: result.json as object,
+        content: (parsed.success ? parsed.data : result.json) as object,
         promptVersionId: prompt.id,
         modelId: result.model,
         generationJobId: jobId,

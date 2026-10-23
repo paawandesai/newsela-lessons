@@ -107,6 +107,54 @@ export const SECTION_TITLES: Record<z.infer<typeof SectionKind>, string> = {
 /** Default minutes per section in a 50-minute lesson. */
 export const SECTION_MINUTES = { launch: 15, learning_in_action: 30, look_back: 5, homework: 0 } as const;
 
+/**
+ * The shape the model writes. Structured output compiles the schema into a
+ * grammar, and a union of nine block shapes inside nested arrays is too large,
+ * so blocks are one flat object here: `text` carries the routine name,
+ * reflection prompt or pulse-check question, and unused fields are empty.
+ * fromWire() turns it into a Lesson.
+ */
+const WireBlock = z.object({
+  type: z.enum(["routine", "teacher_move", "student_response", "teacher_tip", "pulse_check", "reflection", "sentence_starter", "eld_support", "student_support"]),
+  move: z.enum(["none", "say", "say_directions", "ask", "explain", "teach", "model", "pause"]).describe('Only for teacher_move; otherwise "none"'),
+  text: z.string().describe("The block's text. For routine: the routine name. For reflection: the prompt. For pulse_check: the question."),
+  standards: Standards.describe("For pulse_check and eld_support: the codes it checks or supports. Otherwise empty."),
+  choices: z
+    .array(z.object({ text: z.string(), correct: z.boolean(), rationale: z.string() }))
+    .describe("For pulse_check only: the answer choices, exactly one correct. Otherwise empty."),
+});
+
+const WireLesson = Lesson.extend({
+  sections: z.array(Section.extend({ parts: z.array(Part.extend({ blocks: z.array(WireBlock) })) })),
+});
+type WireLesson = z.infer<typeof WireLesson>;
+
+function blockFromWire(b: z.infer<typeof WireBlock>): Block {
+  switch (b.type) {
+    case "routine":
+      return { type: "routine", name: b.text };
+    case "teacher_move":
+      return { type: "teacher_move", move: b.move === "none" ? "say" : b.move, text: b.text };
+    case "pulse_check":
+      return { type: "pulse_check", standards: b.standards, question: b.text, choices: b.choices };
+    case "reflection":
+      return { type: "reflection", prompt: b.text };
+    case "eld_support":
+      return { type: "eld_support", standards: b.standards, text: b.text };
+    default:
+      return { type: b.type, text: b.text };
+  }
+}
+
+/** Parses the model's output into a Lesson. Throws a ZodError when it doesn't fit. */
+export function fromWire(json: unknown): Lesson {
+  const w: WireLesson = WireLesson.parse(json);
+  return Lesson.parse({
+    ...w,
+    sections: w.sections.map((s) => ({ ...s, parts: s.parts.map((p) => ({ ...p, blocks: p.blocks.map(blockFromWire) })) })),
+  });
+}
+
 // Keywords the structured-output API rejects. No property in Lesson uses these names.
 const UNSUPPORTED = new Set(["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "pattern"]);
 
@@ -127,5 +175,5 @@ export function lessonJsonSchema(): Record<string, unknown> {
     if (out.type === "object") out.additionalProperties = false;
     return out;
   };
-  return fix(z.toJSONSchema(Lesson, { target: "draft-2020-12" })) as Record<string, unknown>;
+  return fix(z.toJSONSchema(WireLesson, { target: "draft-2020-12" })) as Record<string, unknown>;
 }

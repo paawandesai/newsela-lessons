@@ -3,7 +3,9 @@ import { lessonJsonSchema } from "@nl/schema";
 
 // The project's key is stored as ANTHROPIC_NEWSELA_API_KEY in some environments.
 const apiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_NEWSELA_API_KEY;
-const client = new Anthropic({ apiKey, maxRetries: 2, timeout: 10 * 60 * 1000 });
+// Explicit base URL, so a host-level ANTHROPIC_BASE_URL (e.g. a dev tool's proxy) is never inherited.
+const baseURL = process.env.GENERATION_API_BASE_URL || "https://api.anthropic.com";
+const client = new Anthropic({ apiKey, baseURL, maxRetries: 2, timeout: 10 * 60 * 1000 });
 
 export const MODEL = process.env.GENERATION_MODEL || "claude-opus-5-5";
 const MAX_TOKENS = Number(process.env.GENERATION_MAX_TOKENS || 32000);
@@ -76,7 +78,7 @@ function fakeLesson(user: string): Generation {
     title,
     minutes,
     standards: [],
-    blocks: [{ type: "teacher_move", move: "say", text: "Placeholder text from GENERATION_FAKE." }],
+    blocks: [{ type: "teacher_move", move: "say", text: "Placeholder text from GENERATION_FAKE.", standards: [], choices: [] }],
   });
   const json = {
     frontMatter: {

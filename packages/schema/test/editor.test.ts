@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { docToLesson, lessonFromY, lessonToDoc, lessonToYUpdate, lessonSchema } from "../src/editor";
 import { contentHash } from "../src/hash";
-import { Lesson } from "../src/lesson";
+import { fromWire, Lesson, lessonJsonSchema } from "../src/lesson";
 import { renderUnitHtml } from "../src/render";
 
 // Synthetic lesson: structure only, no real curriculum text.
@@ -57,5 +57,30 @@ describe("editor document", () => {
     const html = renderUnitHtml("Unit", [lesson]);
     expect(html).toContain("&lt;tags&gt; &amp; things");
     expect(html).toContain("Council of Chief State School Officers");
+  });
+});
+
+describe("model wire format", () => {
+  it("turns flat blocks into lesson blocks", () => {
+    const flat = (b: Partial<Record<string, unknown>>) => ({ move: "none", text: "", standards: [], choices: [], ...b });
+    const wire = {
+      ...lesson,
+      sections: lesson.sections.map((s) => ({
+        ...s,
+        parts: s.parts.map((p) => ({
+          ...p,
+          blocks: p.blocks.map((b) =>
+            b.type === "routine" ? flat({ type: "routine", text: b.name })
+            : b.type === "reflection" ? flat({ type: "reflection", text: b.prompt })
+            : b.type === "pulse_check" ? flat({ type: "pulse_check", text: b.question, standards: b.standards, choices: b.choices })
+            : b.type === "teacher_move" ? flat({ type: "teacher_move", move: b.move, text: b.text })
+            : b.type === "eld_support" ? flat({ type: "eld_support", text: b.text, standards: b.standards })
+            : flat({ type: b.type, text: b.text }),
+          ),
+        })),
+      })),
+    };
+    expect(fromWire(wire)).toEqual(lesson);
+    expect(JSON.stringify(lessonJsonSchema())).not.toMatch(/anyOf|oneOf/);
   });
 });
