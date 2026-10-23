@@ -16,3 +16,4 @@ data/crawl-cache/
 *.csv
 !packages/schema/test/fixtures/*.csv
 brief*.md
+*.tsbuildinfo

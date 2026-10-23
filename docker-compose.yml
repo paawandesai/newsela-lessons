@@ -1,0 +1,64 @@
+# Local and single-host production stack. `docker compose up --build`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nl
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nl}
+      POSTGRES_DB: newsela_lessons
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nl -d newsela_lessons"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+
+  migrate:
+    build: { context: ., target: runtime }
+    command: ["pnpm", "--filter", "@nl/db", "migrate"]
+    environment: &appenv
+      DATABASE_URL: postgres://nl:${POSTGRES_PASSWORD:-nl}@postgres:5432/newsela_lessons
+      REDIS_URL: redis://redis:6379
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GENERATION_MODEL: ${GENERATION_MODEL:-claude-opus-5-5}
+      UNIT_SPEND_CAP_USD: ${UNIT_SPEND_CAP_USD:-25}
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      target: runtime
+      args:
+        NEXT_PUBLIC_COLLAB_URL: ${NEXT_PUBLIC_COLLAB_URL:-ws://localhost:1234}
+    command: ["pnpm", "--filter", "@nl/web", "start"]
+    environment: *appenv
+    ports: ["3000:3000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+
+  worker:
+    build: { context: ., target: runtime }
+    command: ["pnpm", "--filter", "@nl/worker", "start"]
+    environment: *appenv
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+
+  collab:
+    build: { context: ., target: runtime }
+    command: ["pnpm", "--filter", "@nl/collab", "start"]
+    environment: *appenv
+    ports: ["1234:1234"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+volumes:
+  pgdata:
+  redisdata:
