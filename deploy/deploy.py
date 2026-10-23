@@ -73,7 +73,7 @@ def main() -> None:
             f"UNIT_SPEND_CAP_USD={os.environ.get('UNIT_SPEND_CAP_USD', '25')}",
         ]
     )
-    user_data = (
+    script = (
         (HERE / "user-data.sh")
         .read_text()
         .replace("__SITE_HOST__", host)
@@ -81,6 +81,9 @@ def main() -> None:
         .replace("__BRANCH__", os.environ.get("BRANCH", "main"))
         .replace("__ENV_FILE__", env_file)
     )
+    # Lightsail appends the launch script to its own setup and runs the result with
+    # /bin/sh, which ignores our #!/bin/bash line. Write the real script out and run it with bash.
+    user_data = f"mkdir -p /root/lesson-studio\ncat > /root/lesson-studio/setup.sh <<'SETUP_EOF'\n{script}\nSETUP_EOF\nbash /root/lesson-studio/setup.sh\n"
 
     bundle = next(
         b["bundleId"]
