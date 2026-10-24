@@ -37,7 +37,9 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SEED_PASSWORD: ${SEED_PASSWORD:-}
-      GENERATION_MODEL: ${GENERATION_MODEL:-claude-opus-5-5}
+      # The hosted demo runs on Haiku to keep costs low. A GENERATION_MODEL line in an
+      # older instance .env is ignored here; set DEMO_GENERATION_MODEL to change it.
+      GENERATION_MODEL: ${DEMO_GENERATION_MODEL:-claude-haiku-5-5}
       UNIT_SPEND_CAP_USD: ${UNIT_SPEND_CAP_USD:-25}
       DAILY_SPEND_CAP_USD: ${DAILY_SPEND_CAP_USD:-100}
       GENERATION_CONCURRENCY: ${GENERATION_CONCURRENCY:-3}

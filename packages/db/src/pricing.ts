@@ -4,6 +4,7 @@ export const PRICES: Record<string, { input: number; output: number }> = {
   "claude-opus-5-5": { input: 4, output: 20 },
   "claude-opus-5": { input: 5, output: 25 },
   "claude-opus-4-8": { input: 5, output: 25 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5 },
 };
 export const MAX_PRICE = { input: 5, output: 25 };
 

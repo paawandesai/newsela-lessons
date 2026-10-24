@@ -57,7 +57,7 @@ Or run the whole stack: `docker compose up --build`, then open http://localhost.
 | `DATABASE_URL`, `REDIS_URL` | Postgres and Redis |
 | `AUTH_SECRET` | Signs session cookies and collaboration tokens |
 | `ANTHROPIC_API_KEY` | Claude API key (an API key, never a consumer account) |
-| `GENERATION_MODEL` | Model id; configuration, not code. Default `claude-opus-5-5` |
+| `GENERATION_MODEL` | Model id; configuration, not code. Default `claude-opus-5-5`. The Docker deployment sets it from `DEMO_GENERATION_MODEL` instead, default `claude-haiku-5-5`, so the hosted demo runs cheaply |
 | `UNIT_SPEND_CAP_USD` | Spend cap per unit across all runs, regenerations and AI suggestions. Default 25 |
 | `DAILY_SPEND_CAP_USD` | Spend cap across all units per UTC day. Default 100 |
 | `GENERATION_CONCURRENCY`, `GENERATION_MAX_TOKENS` | Worker tuning |
@@ -69,6 +69,8 @@ Or run the whole stack: `docker compose up --build`, then open http://localhost.
 ## Deployment
 
 One AWS Lightsail instance (4 GB, us-west-2) runs the compose stack behind Caddy, with a static IP and an `sslip.io` hostname. The Lightsail firewall opens only ports 80 and 443, plus 22 for Lightsail's browser SSH, and the web and collab containers publish their ports on loopback only. `python deploy/deploy.py` creates the instance; its first-boot script installs Docker, clones the repo with a read-only deploy token, writes `.env`, builds, migrates and seeds. A systemd timer then checks the deployed branch every two minutes and rebuilds when it changes (`deploy/update.sh`). Secrets are generated on first run and kept in the instance's `.env`. They also travel in the instance's user data, which anyone with Lightsail access to the account, and any process on the instance via the metadata service, can read; the first-boot script deletes its own copy when setup finishes. For production, fetch secrets from AWS Secrets Manager instead. The updater deploys whatever is pushed to the branch, so protect that branch.
+
+To check a deployment end to end in a real browser (sign-in for each role, regenerate, AI suggestion, checks, approval, revoke-on-edit, export), run `E2E_PASSWORD=<demo password> pnpm --filter @nl/web e2e:live -- --base <url>`. It regenerates and edits one unapproved lesson, so it costs a few cents on Haiku.
 
 ## Security
 

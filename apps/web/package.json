@@ -9,7 +9,8 @@
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
     "load:collab": "node --env-file-if-exists=../../.env scripts/load-collab.mjs",
-    "load:http": "node --env-file-if-exists=../../.env scripts/load-http.mjs"
+    "load:http": "node --env-file-if-exists=../../.env scripts/load-http.mjs",
+    "e2e:live": "node scripts/e2e-live.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.2.0",

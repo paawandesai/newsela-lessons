@@ -69,7 +69,7 @@ def main() -> None:
             f"POSTGRES_PASSWORD={pg_password}",
             f"ANTHROPIC_API_KEY={anthropic_key}",
             f"SEED_PASSWORD={need('SEED_PASSWORD')}",
-            f"GENERATION_MODEL={os.environ.get('GENERATION_MODEL', 'claude-opus-5-5')}",
+            f"DEMO_GENERATION_MODEL={os.environ.get('DEMO_GENERATION_MODEL', 'claude-haiku-5-5')}",
             f"UNIT_SPEND_CAP_USD={os.environ.get('UNIT_SPEND_CAP_USD', '25')}",
             f"DAILY_SPEND_CAP_USD={os.environ.get('DAILY_SPEND_CAP_USD', '100')}",
         ]
