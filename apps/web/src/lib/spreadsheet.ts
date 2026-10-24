@@ -1,6 +1,6 @@
 import "server-only";
 import ExcelJS from "exceljs";
-import { parseCsv } from "@nl/schema";
+import { parseCsv, sheetExportUrl } from "@nl/schema";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -33,30 +33,14 @@ async function gridFromXlsx(bytes: ArrayBuffer): Promise<string[][]> {
 }
 
 /**
- * Accepts only a docs.google.com spreadsheet link and fetches its CSV export
- * from Google. The URL is rebuilt from the sheet id, so no user-supplied host
- * is ever fetched (no SSRF). The sheet must be shared "anyone with the link".
+ * Fetches a linked sheet's CSV export from Google (see parseSheetLink). The
+ * sheet must be shared "anyone with the link".
  */
-export function parseSheetLink(link: string): { sheetId: string; gid: string } {
-  let url: URL;
-  try {
-    url = new URL(link.trim());
-  } catch {
-    throw new ImportError("That is not a valid link.");
-  }
-  const id = /^\/spreadsheets\/d\/([A-Za-z0-9_-]{20,})/.exec(url.pathname)?.[1];
-  if (url.protocol !== "https:" || url.hostname !== "docs.google.com" || !id) {
-    throw new ImportError("Paste a docs.google.com/spreadsheets link.");
-  }
-  const gid = /(?:^|[#&?])gid=(\d+)/.exec(url.hash + url.search)?.[1] ?? "0";
-  return { sheetId: id, gid };
-}
-
 const ALLOWED_FINAL_HOSTS = [/^docs\.google\.com$/, /\.googleusercontent\.com$/];
 
-export async function gridFromGoogleSheet(sheetId: string, gid: string): Promise<string[][]> {
+export async function gridFromGoogleSheet(sheetId: string, gid: string | null): Promise<string[][]> {
   const res = await fetch(
-    `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/export?format=csv&gid=${encodeURIComponent(gid)}`,
+    sheetExportUrl(sheetId, gid),
     { redirect: "follow", signal: AbortSignal.timeout(15_000), cache: "no-store" },
   );
   const finalHost = new URL(res.url).hostname;

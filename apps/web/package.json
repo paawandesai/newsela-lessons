@@ -7,9 +7,12 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "load:collab": "node --env-file-if-exists=../../.env scripts/load-collab.mjs",
+    "load:http": "node --env-file-if-exists=../../.env scripts/load-http.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.2.0",
     "@hocuspocus/provider": "^4.7.1",
     "@nl/db": "workspace:*",
     "@nl/schema": "workspace:*",

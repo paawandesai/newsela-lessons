@@ -18,3 +18,5 @@ data/crawl-cache/
 brief*.md
 *.tsbuildinfo
 *.rdb
+__pycache__/
+*.pyc

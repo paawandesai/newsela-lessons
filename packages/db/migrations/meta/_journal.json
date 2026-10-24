@@ -8,6 +8,13 @@
       "when": 1792782153191,
       "tag": "0000_pale_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792868239254,
+      "tag": "0001_unit_spend_and_suggestions",
+      "breakpoints": true
     }
   ]
 }

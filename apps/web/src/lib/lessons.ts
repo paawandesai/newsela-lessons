@@ -1,12 +1,21 @@
 import "server-only";
 import { SignJWT } from "jose";
-import { approvals, auditLog, db, lessons, lessonVersions, outlineRows, rowContext, units, users, type Flag } from "@nl/db";
+import { approvals, auditLog, db, lessons, lessonVersions, outlineRows, promptVersions, rowContext, units, users, type Flag } from "@nl/db";
 import { and, desc, eq, isNull } from "@nl/db/orm";
 import { contentHash, hasBlocking, Lesson, validateLesson } from "@nl/schema";
 import { lessonFromY } from "@nl/schema/editor";
 import type { SessionUser } from "./session";
 
 export class LessonError extends Error {}
+
+/** Approval needs the approver to confirm these warnings by hand; they are stored with the approval. */
+const CONFIRM_CODES = new Set(["unsourced_quote"]);
+
+export class NeedsConfirmation extends LessonError {
+  constructor(readonly flags: Flag[]) {
+    super(`${flags.length} quoted passage${flags.length === 1 ? " is" : "s are"} not in the outline. Check each is original or cleared, then confirm.`);
+  }
+}
 
 export async function getLesson(lessonId: string) {
   const lesson = await db.query.lessons.findFirst({ where: eq(lessons.id, lessonId) });
@@ -18,7 +27,8 @@ export async function getLesson(lessonId: string) {
     activeApproval(lesson.id),
   ]);
   const approver = approval ? await db.query.users.findFirst({ where: eq(users.id, approval.approverId) }) : undefined;
-  return { lesson, row: row!, unit: unit!, version, approval, approverName: approver?.name };
+  const prompt = version?.promptVersionId ? await db.query.promptVersions.findFirst({ where: eq(promptVersions.id, version.promptVersionId) }) : undefined;
+  return { lesson, row: row!, unit: unit!, version, approval, approverName: approver?.name, promptVersion: prompt?.version };
 }
 
 function activeApproval(lessonId: string) {
@@ -49,17 +59,19 @@ export async function runChecks(lessonId: string): Promise<Flag[]> {
 }
 
 /** Freezes the lesson as it stands: a snapshot, its SHA-256, and who approved it. */
-export async function approve(lessonId: string, user: SessionUser) {
+export async function approve(lessonId: string, user: SessionUser, confirmed: boolean) {
   const { lesson, content } = await currentContent(lessonId);
   if (lesson.status === "approved") throw new LessonError("Already approved.");
   const row = (await db.query.outlineRows.findFirst({ where: eq(outlineRows.id, lesson.outlineRowId) }))!;
   const flags = validateLesson(content, rowContext(row));
   if (hasBlocking(flags)) throw new LessonError("Fix the failing checks before approving.");
+  const toConfirm = flags.filter((f) => CONFIRM_CODES.has(f.code));
+  if (toConfirm.length && !confirmed) throw new NeedsConfirmation(toConfirm);
   const hash = contentHash(content);
   await db.transaction(async (tx) => {
-    const [a] = await tx.insert(approvals).values({ lessonId, approverId: user.id, contentHash: hash, snapshot: content }).returning({ id: approvals.id });
+    const [a] = await tx.insert(approvals).values({ lessonId, approverId: user.id, contentHash: hash, snapshot: content, acknowledgedWarnings: toConfirm }).returning({ id: approvals.id });
     await tx.update(lessons).set({ status: "approved", updatedAt: new Date() }).where(eq(lessons.id, lessonId));
-    await tx.insert(auditLog).values({ unitId: lesson.unitId, lessonId, actorId: user.id, action: "lesson.approved", detail: { approvalId: a!.id, contentHash: hash } });
+    await tx.insert(auditLog).values({ unitId: lesson.unitId, lessonId, actorId: user.id, action: "lesson.approved", detail: { approvalId: a!.id, contentHash: hash, acknowledgedWarnings: toConfirm.length } });
   });
   return hash;
 }

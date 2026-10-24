@@ -4,9 +4,9 @@ import { eq } from "@nl/db/orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auditLog, db, units } from "@nl/db";
-import { OutlineError } from "@nl/schema";
+import { OutlineError, parseSheetLink, SheetLinkError } from "@nl/schema";
 import { requireUser } from "@/lib/session";
-import { gridFromGoogleSheet, gridFromUpload, ImportError, parseSheetLink } from "@/lib/spreadsheet";
+import { gridFromGoogleSheet, gridFromUpload, ImportError } from "@/lib/spreadsheet";
 import { createUnitFromGrid, getUnitWithRows, resolveFlag, unresolvedErrors, type FlagRef } from "@/lib/units";
 
 export async function importUnit(_prev: { error?: string } | undefined, form: FormData) {
@@ -19,12 +19,12 @@ export async function importUnit(_prev: { error?: string } | undefined, form: Fo
       unitId = await createUnitFromGrid(await gridFromUpload(file), { kind: "upload", ref: file.name }, user);
     } else if (link) {
       const { sheetId, gid } = parseSheetLink(link);
-      unitId = await createUnitFromGrid(await gridFromGoogleSheet(sheetId, gid), { kind: "google_sheet", ref: `${sheetId}#gid=${gid}` }, user);
+      unitId = await createUnitFromGrid(await gridFromGoogleSheet(sheetId, gid), { kind: "google_sheet", ref: gid ? `${sheetId}#gid=${gid}` : sheetId }, user);
     } else {
       return { error: "Choose a file or paste a Google Sheets link." };
     }
   } catch (e) {
-    if (e instanceof ImportError || e instanceof OutlineError) return { error: e.message };
+    if (e instanceof ImportError || e instanceof OutlineError || e instanceof SheetLinkError) return { error: e.message };
     throw e;
   }
   redirect(`/units/${unitId}`);

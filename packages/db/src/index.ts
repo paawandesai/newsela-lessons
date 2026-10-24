@@ -4,6 +4,8 @@ import * as schema from "./schema";
 
 export * from "./schema";
 export * from "./generation";
+export * from "./spend";
+export * from "./pricing";
 export { schema };
 
 const url = process.env.DATABASE_URL ?? "postgres://nl:nl@localhost:5432/newsela_lessons";

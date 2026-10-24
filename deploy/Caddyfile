@@ -1,6 +1,10 @@
 # HTTPS is automatic when SITE_ADDRESS is a public hostname (e.g. lessons.1-2-3-4.sslip.io).
 {$SITE_ADDRESS::80} {
 	encode gzip
+	# The web app sets the other security headers itself (apps/web/next.config.ts).
+	header Strict-Transport-Security "max-age=31536000"
+	header -Server
+
 	# The collaboration server, as wss://<host>/collab
 	handle_path /collab* {
 		reverse_proxy collab:1234

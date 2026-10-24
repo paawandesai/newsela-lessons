@@ -84,3 +84,19 @@ describe("model wire format", () => {
     expect(JSON.stringify(lessonJsonSchema())).not.toMatch(/anyOf|oneOf/);
   });
 });
+
+describe("AI suggestion marks", () => {
+  it("record applied AI text without changing the lesson or its hash", async () => {
+    const { prosemirrorJSONToYDoc, yXmlFragmentToProsemirrorJSON } = await import("y-prosemirror");
+    const { FRAGMENT } = await import("../src/editor");
+    const json = lessonToDoc(lesson) as { content: { type: string; content?: unknown[] }[] };
+    // Mark the content objective as applied from a suggestion.
+    const field = json.content.find((n) => n.type === "front_field")!;
+    field.content = [{ type: "text", text: "Cite evidence.", marks: [{ type: "ai", attrs: { suggestion: "s1", model: "m" } }] }];
+    lessonSchema.nodeFromJSON(json).check();
+    const ydoc = prosemirrorJSONToYDoc(lessonSchema, json, FRAGMENT);
+    const back = yXmlFragmentToProsemirrorJSON(ydoc.getXmlFragment(FRAGMENT));
+    expect(JSON.stringify(back)).toContain('"suggestion":"s1"');
+    expect(contentHash(lessonFromY(ydoc))).toBe(contentHash(lesson));
+  });
+});

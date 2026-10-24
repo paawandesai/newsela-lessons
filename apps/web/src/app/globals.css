@@ -123,3 +123,14 @@ table.grid th:first-child, table.grid td:first-child { padding-left: 20px; }
 .ProseMirror-yjs-cursor > div { position: absolute; top: -1.15em; left: -1px; font: 600 11px/1 Inter, system-ui, sans-serif; color: #fff; padding: 2px 4px; border-radius: 3px; white-space: nowrap; user-select: none; }
 .chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 13px; text-decoration: none; }
 .chip-on { border-color: var(--accent); background: var(--accent-bg); color: var(--accent-ink); font-weight: 600; }
+
+/* AI suggestions */
+.ai-assist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg); }
+.ai-assist-title { margin: 0; font-size: 14px; }
+.input-sm { min-height: 36px; font-size: 13px; }
+.suggestion-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.suggestion { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-2); }
+.suggestion p { margin: 0; }
+.suggestion-old { text-decoration: line-through; color: var(--ink-3); font-size: 14px; }
+.suggestion-new { background: var(--accent-bg); border-radius: 6px; padding: 6px 8px; font-size: 14px; }
+.lesson-doc .ai-edit { background: var(--accent-bg); border-bottom: 2px dotted var(--accent); }

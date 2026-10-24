@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   customType,
+  date,
   index,
   integer,
   jsonb,
@@ -82,6 +83,8 @@ export const units = pgTable("units", {
   status: unitStatusEnum("status").notNull().default("needs_review"),
   /** Unit-level flags, e.g. title vs filename unit mismatch. */
   flags: jsonb("flags").$type<Flag[]>().notNull().default([]),
+  /** Reserved and settled spend across all runs, regenerations and AI suggestions, checked against UNIT_SPEND_CAP_USD. */
+  spentUsd: numeric("spent_usd", { precision: 10, scale: 4 }).notNull().default("0"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: createdAt(),
 });
@@ -250,8 +253,47 @@ export const approvals = pgTable(
     approvedAt: timestamp("approved_at", { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     revokedReason: text("revoked_reason"),
+    /** Warnings the approver confirmed by hand (e.g. quoted text checked as original). */
+    acknowledgedWarnings: jsonb("acknowledged_warnings").$type<Flag[]>().notNull().default([]),
   },
   (t) => [index("approvals_lesson").on(t.lessonId)],
+);
+
+// ---------------------------------------------------------------------------
+// Spend across all units per UTC day, checked with each unit reservation.
+// ---------------------------------------------------------------------------
+
+export const spendDays = pgTable("spend_days", {
+  day: date("day").primaryKey(),
+  spentUsd: numeric("spent_usd", { precision: 10, scale: 4 }).notNull().default("0"),
+});
+
+// ---------------------------------------------------------------------------
+// AI-assisted edits: suggestions a reviewer applies (or dismisses) by hand.
+// ---------------------------------------------------------------------------
+
+export const suggestionStatusEnum = pgEnum("suggestion_status", ["pending", "applied", "dismissed", "stale"]);
+
+export const aiSuggestions = pgTable(
+  "ai_suggestions",
+  {
+    id: id(),
+    lessonId: uuid("lesson_id").notNull().references(() => lessons.id, { onDelete: "cascade" }),
+    /** Index of the edited text block in document order, plus its node type, for locating it again. */
+    target: jsonb("target").$type<{ index: number; node: string; label: string }>().notNull(),
+    instruction: text("instruction").notNull(),
+    originalText: text("original_text").notNull(),
+    suggestedText: text("suggested_text").notNull(),
+    rationale: text("rationale").notNull().default(""),
+    modelId: text("model_id").notNull(),
+    costUsd: numeric("cost_usd", { precision: 10, scale: 4 }),
+    status: suggestionStatusEnum("status").notNull().default("pending"),
+    createdBy: uuid("created_by").notNull().references(() => users.id),
+    createdAt: createdAt(),
+    resolvedBy: uuid("resolved_by").references(() => users.id),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [index("ai_suggestions_lesson").on(t.lessonId)],
 );
 
 export const auditLog = pgTable(

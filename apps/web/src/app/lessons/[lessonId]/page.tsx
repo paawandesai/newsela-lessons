@@ -4,6 +4,7 @@ import { CCSS_NOTICE, Lesson, officialUrl } from "@nl/schema";
 import { AppShell } from "@/components/AppShell";
 import { collabToken, getLesson } from "@/lib/lessons";
 import { requireUser } from "@/lib/session";
+import { listSuggestions } from "@/lib/suggestions";
 import { Editor } from "./Editor";
 import { ApprovalPanel, ChecksPanel } from "./Panels";
 
@@ -22,14 +23,18 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
   const user = await requireUser();
   const data = await getLesson(lessonId);
   if (!data) notFound();
-  const { lesson, row, unit, version, approval, approverName } = data;
+  const { lesson, row, unit, version, approval, approverName, promptVersion } = data;
 
   const draft = Lesson.safeParse(version?.content);
   const editable = !!version && draft.success;
   const token = editable ? await collabToken(user, lesson) : null;
+  const suggestions = await listSuggestions(lesson.id);
+  const applied = suggestions.filter((s) => s.status === "applied").length;
   const collabUrl = process.env.NEXT_PUBLIC_COLLAB_URL || "ws://localhost:1234";
   const [statusLabel, statusClass] = STATUS[lesson.status] ?? ["", "badge-neutral"];
   const isApprover = user.role === "approver" || user.role === "admin";
+  // Matches the collaboration server, which makes other roles' connections read-only.
+  const canEdit = user.role === "reviewer" || user.role === "admin";
   const alignment = draft.success ? draft.data.sections.flatMap((s) => s.parts.filter((p) => p.standards.length).map((p) => ({ title: p.title, codes: p.standards }))) : [];
 
   return (
@@ -60,7 +65,16 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
                 room={lesson.collabRoom}
                 token={token}
                 user={{ id: user.id, name: user.name }}
-                readOnlyNote={lesson.status === "approved" ? "This lesson is approved. Any edit sends it back to review and is logged." : undefined}
+                readOnly={!canEdit}
+                lessonId={lesson.id}
+                suggestions={suggestions}
+                readOnlyNote={
+                  !canEdit
+                    ? "You can read along. Reviewers edit lessons."
+                    : lesson.status === "approved"
+                      ? "This lesson is approved. Any edit sends it back to review and is logged."
+                      : undefined
+                }
               />
             ) : (
               <p className="card-pad muted">{version ? "The generated draft does not match the lesson format. Regenerate it from the generation page." : "This lesson has not been generated yet."}</p>
@@ -68,7 +82,7 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
           </article>
 
           <aside className="lesson-side" aria-label="Review panel">
-            <ChecksPanel lessonId={lesson.id} initial={version?.validation ?? []} />
+            <ChecksPanel lessonId={lesson.id} initial={version?.validation ?? []} canRun={user.role !== "expert"} />
 
             <section className="card card-pad side" aria-labelledby="approval">
               <h2 id="approval">Approval</h2>
@@ -127,12 +141,16 @@ export default async function LessonPage({ params }: { params: Promise<{ lessonI
               <dl className="kv">
                 <dt>Outline row</dt>
                 <dd>Lesson {row.lessonNumber}</dd>
+                <dt>Prompt</dt>
+                <dd>{promptVersion ? `v${promptVersion}` : "None"}</dd>
                 <dt>Model</dt>
                 <dd>{version?.modelId ?? "None"}</dd>
                 <dt>Generated</dt>
                 <dd>{version ? version.createdAt.toLocaleString("en-US") : "Not yet"}</dd>
                 <dt>Edited by people</dt>
                 <dd>{lesson.collabState ? "Yes" : "No"}</dd>
+                <dt>AI suggestions applied</dt>
+                <dd>{applied ? `${applied} (highlighted in the text)` : "None"}</dd>
               </dl>
             </section>
           </aside>

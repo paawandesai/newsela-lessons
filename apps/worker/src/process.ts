@@ -9,16 +9,18 @@ import {
   outlineRows,
   promptInput,
   promptVersions,
+  reserveSpend,
   rowContext,
+  settleSpend,
   units,
   type Flag,
 } from "@nl/db";
 import { ZodError } from "zod";
 import { buildUserMessage, fromWire, hasBlocking, validateLesson, type Lesson } from "@nl/schema";
-import { costUsd, generateLesson, MODEL } from "./claude";
+import { costUsd, generateLesson, MODEL, reserveUsd } from "./claude";
 
-/** Reserved against the run's cap before each call, then trued up to the real cost. */
-const ESTIMATE_USD = Number(process.env.GENERATION_ESTIMATE_USD || 0.75);
+/** Reserved against the unit's and the day's caps before each call, then trued up to the real cost. */
+const RESERVE_USD = reserveUsd();
 
 export async function processJob(jobId: string): Promise<void> {
   const job = await db.query.generationJobs.findFirst({ where: eq(generationJobs.id, jobId) });
@@ -32,18 +34,15 @@ export async function processJob(jobId: string): Promise<void> {
     return;
   }
 
-  // Reserve budget atomically so parallel jobs can never overshoot the cap.
-  const reserved = await db
-    .update(generationRuns)
-    .set({ spentUsd: sql`${generationRuns.spentUsd} + ${ESTIMATE_USD}` })
-    .where(and(eq(generationRuns.id, run.id), eq(generationRuns.status, "running"), sql`${generationRuns.spentUsd} + ${ESTIMATE_USD} <= ${generationRuns.capUsd}`))
-    .returning({ id: generationRuns.id });
-  if (!reserved.length) {
+  // Reserve the worst case atomically, so parallel jobs can never pass the unit or daily cap.
+  const capped = await reserveSpend(db, run.unitId, RESERVE_USD);
+  if (capped) {
     await db.update(generationRuns).set({ status: "stopped_at_cap" }).where(and(eq(generationRuns.id, run.id), eq(generationRuns.status, "running")));
-    await finish(jobId, job.lessonId, "skipped", "pending", { error: "Spend cap reached." });
+    await finish(jobId, job.lessonId, "skipped", "pending", { error: capped === "unit" ? "The unit's spend cap is reached." : "Today's spend cap is reached." });
     await settleRun(run.id);
     return;
   }
+  await addRunSpend(run.id, RESERVE_USD);
 
   const lesson = (await db.query.lessons.findFirst({ where: eq(lessons.id, job.lessonId) }))!;
   const row = (await db.query.outlineRows.findFirst({ where: eq(outlineRows.id, lesson.outlineRowId) }))!;
@@ -67,14 +66,14 @@ export async function processJob(jobId: string): Promise<void> {
   try {
     result = await generateLesson(prompt.systemPrompt, buildUserMessage(input));
   } catch (e) {
-    // Release the reservation; the queue retries once.
-    await addSpend(run.id, -ESTIMATE_USD);
+    // The call may have been billed before it failed, so the reservation stays counted. The queue retries once.
     await db.update(generationJobs).set({ status: "queued", error: String(e) }).where(eq(generationJobs.id, jobId));
     throw e;
   }
 
   const cost = costUsd(result.model, result.usage);
-  await addSpend(run.id, cost - ESTIMATE_USD);
+  await settleSpend(db, unit.id, cost - RESERVE_USD);
+  await addRunSpend(run.id, cost - RESERVE_USD);
   const usage = { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens, costUsd: cost.toFixed(4) };
 
   if (result.kind !== "ok") {
@@ -163,7 +162,7 @@ async function finish(
     .where(and(eq(lessons.id, lessonId), eq(lessons.status, "generating")));
 }
 
-async function addSpend(runId: string, delta: number) {
+async function addRunSpend(runId: string, delta: number) {
   await db.update(generationRuns).set({ spentUsd: sql`greatest(0, ${generationRuns.spentUsd} + ${delta})` }).where(eq(generationRuns.id, runId));
 }
 

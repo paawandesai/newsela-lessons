@@ -11,6 +11,9 @@ if (secret.length < 32) throw new Error("AUTH_SECRET must be at least 32 charact
 
 type Context = { userId: string; name: string; role: string; lessonId: string };
 
+/** Reviewers edit; experts and approvers read along (approvers finalize what reviewers wrote). */
+const EDITOR_ROLES = new Set(["reviewer", "admin"]);
+
 /**
  * Real-time co-editing, one Yjs document per lesson. Every connection carries a
  * short-lived token the web app signs for one user and one lesson room; room
@@ -22,7 +25,7 @@ const server = new Server<Context>({
   debounce: 1000,
   maxDebounce: 5000,
 
-  async onAuthenticate({ token, documentName }) {
+  async onAuthenticate({ token, documentName, connectionConfig }) {
     let claims;
     try {
       ({ payload: claims } = await jwtVerify(token, secret, { audience: "collab", issuer: "lesson-studio" }));
@@ -33,6 +36,8 @@ const server = new Server<Context>({
     const lesson = await db.query.lessons.findFirst({ where: eq(lessons.collabRoom, documentName) });
     const user = await db.query.users.findFirst({ where: eq(users.id, claims.sub) });
     if (!lesson || !user || lesson.id !== claims.lid) throw new Error("Not authorized");
+    // Enforced here, not only in the browser: a read-only connection's updates are dropped by the server.
+    connectionConfig.readOnly = !EDITOR_ROLES.has(user.role);
     return { userId: user.id, name: user.name, role: user.role, lessonId: lesson.id } satisfies Context;
   },
 

@@ -49,4 +49,6 @@ docker compose up -d
 docker compose run --rm migrate pnpm --filter @nl/db seed
 # Later pushes to the branch are picked up within a few minutes.
 REPO_URL="$REPO_URL" BRANCH="$BRANCH" bash deploy/install-updater.sh
+# This script carried the secrets as user data; remove the copy on disk now that .env holds them.
+shred -u /root/lesson-studio/setup.sh 2>/dev/null || true
 echo "lesson-studio: ready at https://$SITE_HOST"

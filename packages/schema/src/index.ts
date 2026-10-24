@@ -5,3 +5,5 @@ export * from "./lesson";
 export * from "./validate";
 export * from "./prompt";
 export * from "./hash";
+export * from "./sheets";
+export * from "./suggest";

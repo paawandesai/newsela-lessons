@@ -1,6 +1,5 @@
 import "server-only";
 import { Queue } from "bullmq";
-import { Redis } from "ioredis";
 import {
   auditLog,
   db,
@@ -12,25 +11,32 @@ import {
   lessonVersions,
   outlineRows,
   promptVersions,
+  unitCapUsd,
   units,
   type Flag,
   type GenerateJobData,
 } from "@nl/db";
 import { and, asc, desc, eq, inArray } from "@nl/db/orm";
+import { redis } from "./ratelimit";
 import type { SessionUser } from "./session";
 
 const g = globalThis as unknown as { generateQueue?: Queue<GenerateJobData> };
 function queue() {
   g.generateQueue ??= new Queue<GenerateJobData>(GENERATE_QUEUE, {
-    connection: new Redis(process.env.REDIS_URL || "redis://localhost:6379", { maxRetriesPerRequest: null }),
+    connection: redis(),
   });
   return g.generateQueue;
 }
 
 const MODEL = process.env.GENERATION_MODEL || "claude-opus-5-5";
-const CAP_USD = Number(process.env.UNIT_SPEND_CAP_USD || 25);
 
 export class GenerationError extends Error {}
+
+/** The worker enforces the cap per call; this refuses to queue work that could not start. */
+function assertBudget(unit: typeof units.$inferSelect) {
+  if (Number(unit.spentUsd) >= unitCapUsd())
+    throw new GenerationError(`This unit has used its $${unitCapUsd().toFixed(0)} spend cap. An admin can raise UNIT_SPEND_CAP_USD.`);
+}
 
 async function latestPrompt() {
   const p = await db.query.promptVersions.findFirst({ orderBy: desc(promptVersions.version) });
@@ -59,6 +65,7 @@ export async function startRun(unitId: string, user: SessionUser) {
   const unit = await db.query.units.findFirst({ where: eq(units.id, unitId) });
   if (!unit) throw new GenerationError("Unit not found.");
   if (unit.status === "needs_review") throw new GenerationError("Confirm the outline first.");
+  assertBudget(unit);
   const active = await db.query.generationRuns.findFirst({ where: and(eq(generationRuns.unitId, unitId), eq(generationRuns.status, "running")) });
   if (active) return active.id;
 
@@ -73,7 +80,7 @@ export async function startRun(unitId: string, user: SessionUser) {
   const runId = await db.transaction(async (tx) => {
     const [run] = await tx
       .insert(generationRuns)
-      .values({ unitId, promptVersionId: prompt.id, modelId: MODEL, capUsd: CAP_USD.toFixed(4), createdBy: user.id })
+      .values({ unitId, promptVersionId: prompt.id, modelId: MODEL, capUsd: unitCapUsd().toFixed(4), createdBy: user.id })
       .returning({ id: generationRuns.id });
     const created = await tx
       .insert(generationJobs)
@@ -97,7 +104,7 @@ export async function startRun(unitId: string, user: SessionUser) {
     } else {
       await tx.update(units).set({ status: "generating" }).where(eq(units.id, unitId));
     }
-    await tx.insert(auditLog).values({ unitId, actorId: user.id, action: "run.started", detail: { runId: run!.id, jobs: ids.length, promptVersion: prompt.version, capUsd: CAP_USD } });
+    await tx.insert(auditLog).values({ unitId, actorId: user.id, action: "run.started", detail: { runId: run!.id, jobs: ids.length, promptVersion: prompt.version, capUsd: unitCapUsd() } });
     return { id: run!.id, ids };
   });
   await enqueue(runId.ids);
@@ -110,13 +117,15 @@ export async function regenerateLesson(lessonId: string, user: SessionUser) {
   if (!lesson) throw new GenerationError("Lesson not found.");
   if (lesson.collabState) throw new GenerationError("This lesson has been edited. Regenerating would discard those edits.");
   if (lesson.status === "generating" || lesson.status === "approved") throw new GenerationError("This lesson can't be regenerated right now.");
+  const unit = (await db.query.units.findFirst({ where: eq(units.id, lesson.unitId) }))!;
+  assertBudget(unit);
   const row = (await db.query.outlineRows.findFirst({ where: eq(outlineRows.id, lesson.outlineRowId) }))!;
   const prompt = await latestPrompt();
 
   const job = await db.transaction(async (tx) => {
     const [run] = await tx
       .insert(generationRuns)
-      .values({ unitId: lesson.unitId, promptVersionId: prompt.id, modelId: MODEL, capUsd: CAP_USD.toFixed(4), createdBy: user.id })
+      .values({ unitId: lesson.unitId, promptVersionId: prompt.id, modelId: MODEL, capUsd: unitCapUsd().toFixed(4), createdBy: user.id })
       .returning({ id: generationRuns.id });
     const [job] = await tx
       .insert(generationJobs)
@@ -184,5 +193,5 @@ export async function getGenerationStatus(unitId: string) {
       flags: versions.find((v) => v.id === lesson.generatedVersionId)?.validation ?? [],
     };
   });
-  return { unit, run, prompt, runSpend, lessons: list };
+  return { unit, run, prompt, runSpend, unitSpend: Number(unit.spentUsd), unitCap: unitCapUsd(), lessons: list };
 }

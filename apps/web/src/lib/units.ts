@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq } from "@nl/db/orm";
 import { auditLog, db, lessons, outlineRows, units, type Flag } from "@nl/db";
-import { parseOutline, type ParsedOutline } from "@nl/schema";
+import { OutlineError, parseOutline, type ParsedOutline } from "@nl/schema";
 import type { SessionUser } from "./session";
 
 export async function createUnitFromGrid(
@@ -10,6 +10,9 @@ export async function createUnitFromGrid(
   user: SessionUser,
 ): Promise<string> {
   const outline: ParsedOutline = parseOutline(grid);
+  // Lessons are keyed by number, so two rows with one number can't both be stored. Ask for a fixed sheet.
+  const dupes = [...new Set(outline.rows.filter((r) => r.flags.some((f) => f.code === "duplicate_lesson")).map((r) => r.lessonNumber))];
+  if (dupes.length) throw new OutlineError(`The sheet lists ${dupes.map((n) => `lesson ${n}`).join(", ")} more than once. Fix the Lesson # column and import again.`);
   return db.transaction(async (tx) => {
     const [unit] = await tx
       .insert(units)

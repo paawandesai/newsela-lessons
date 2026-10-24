@@ -71,6 +71,7 @@ def main() -> None:
             f"SEED_PASSWORD={need('SEED_PASSWORD')}",
             f"GENERATION_MODEL={os.environ.get('GENERATION_MODEL', 'claude-opus-5-5')}",
             f"UNIT_SPEND_CAP_USD={os.environ.get('UNIT_SPEND_CAP_USD', '25')}",
+            f"DAILY_SPEND_CAP_USD={os.environ.get('DAILY_SPEND_CAP_USD', '100')}",
         ]
     )
     script = (

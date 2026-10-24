@@ -5,8 +5,9 @@ import { Lesson, SECTION_TITLES, type Block } from "./lesson";
 
 /**
  * The collaborative editor's document. It mirrors the Lesson schema one node
- * per field, so a lesson converts to a document and back without loss. Text is
- * plain (no marks) because the lesson format has no inline formatting.
+ * per field, so a lesson converts to a document and back without loss. The
+ * lesson format has no inline formatting; the only mark, `ai`, records text a
+ * reviewer took from an AI suggestion, and it never changes the lesson itself.
  * Outline-owned data (number, type, standards, vocabulary, texts) rides in one
  * read-only `meta` node; people edit the teaching content around it.
  */
@@ -64,7 +65,7 @@ export const lessonSchema = new Schema({
     front_field: {
       attrs: { key: { default: "objective.content" } },
       content: "text*",
-      marks: "",
+      marks: "ai",
       toDOM: (n) => ["p", { class: "front-field", "data-key": n.attrs.key, ...label(FRONT_FIELDS[n.attrs.key as FrontKey] ?? n.attrs.key) }, 0],
     },
     section: {
@@ -86,7 +87,7 @@ export const lessonSchema = new Schema({
       group: "lesson_block",
       attrs: { type: { default: "teacher_move" }, move: { default: null }, standards: { default: "" } },
       content: "text*",
-      marks: "",
+      marks: "ai",
       toDOM: (n) => ["div", { class: `blk blk-${n.attrs.type}`, ...label(blockLabel(n)) }, 0],
     },
     pulse_check: {
@@ -104,8 +105,24 @@ export const lessonSchema = new Schema({
     choice_text: { content: "text*", marks: "", toDOM: () => ["p", { class: "choice-text" }, 0] },
     choice_rationale: { content: "text*", marks: "", toDOM: () => ["p", { class: "choice-rationale", ...label("Rationale") }, 0] },
   },
-  marks: {},
+  marks: {
+    /** Text applied from an AI suggestion: which suggestion, and which model wrote it. */
+    ai: {
+      attrs: { suggestion: { default: "" }, model: { default: "" } },
+      inclusive: false,
+      toDOM: (m) => ["span", { class: "ai-edit", "data-suggestion": m.attrs.suggestion, title: `Applied from an AI suggestion (${m.attrs.model})` }, 0],
+      parseDOM: [{ tag: "span.ai-edit", getAttrs: (d) => ({ suggestion: (d as HTMLElement).dataset.suggestion ?? "" }) }],
+    },
+  },
 });
+
+/** Node types an AI suggestion can rewrite, in the order suggestion targets are counted. */
+export const SUGGESTIBLE = ["front_field", "block"] as const;
+
+/** A human-readable name for a suggestible node, e.g. "Teacher tip" or "Content objective". */
+export function suggestibleLabel(n: PMNode): string {
+  return n.type.name === "front_field" ? (FRONT_FIELDS[n.attrs.key as FrontKey] ?? "Front matter") : blockLabel(n);
+}
 
 function blockLabel(n: PMNode) {
   const t = n.attrs.type as keyof typeof BLOCK_LABELS;

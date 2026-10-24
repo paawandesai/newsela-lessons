@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import type { RowContext } from "./validate";
 
 /**
- * Prompt v1. Stored in prompt_versions on first seed; content authors edit
- * copies of it in the app, and every lesson records which version made it.
+ * Prompt v1. Stored in prompt_versions on first seed, and every lesson records
+ * which version made it. New versions are added as new rows (no editor UI yet).
  */
 export const DEFAULT_SYSTEM_PROMPT = `You write teacher-facing lessons for a California core ELA program (grade 6). Each lesson is one 50-minute class period for every teacher in a district to follow, so it must be specific, teachable, and standards-aligned.
 
@@ -54,13 +54,16 @@ export type PromptInput = {
 export function buildUserMessage(input: PromptInput): string {
   const nonce = randomBytes(6).toString("hex");
   const r = input.row;
+  // Sheet text can't open or close tags: angle brackets become look-alike characters.
+  const clean = (v: string) => v.replace(/</g, "‹").replace(/>/g, "›");
   const field = (name: string, value: string | number | string[]) =>
-    `${name}: ${Array.isArray(value) ? value.join(", ") || "(none)" : String(value ?? "") || "(none)"}`;
+    `${name}: ${clean(Array.isArray(value) ? value.join(", ") || "(none)" : String(value ?? "") || "(none)")}`;
   return [
-    `Write lesson ${r.lessonNumber} of ${input.unitTitle}${input.anchorText ? ` (anchor text: ${input.anchorText})` : ""}.`,
-    `It runs ${r.days} day(s), so class sections total ${50 * r.days} minutes.`,
+    `Write lesson ${r.lessonNumber}. It runs ${r.days} day(s), so class sections total ${50 * r.days} minutes.`,
     "",
     `<outline_row id="${nonce}">`,
+    field("Unit", input.unitTitle),
+    field("Anchor text", input.anchorText ?? ""),
     field("Lesson group", r.lessonGroup),
     field("Lesson type", r.lessonType),
     field("Text-dependent question", r.textDependentQuestion),
@@ -73,14 +76,13 @@ export function buildUserMessage(input: PromptInput): string {
     field("Skill for the performance task", r.performanceTaskSkill),
     field("Foundational skills", r.foundationalSkills),
     field("Vocabulary", r.vocabulary),
+    input.neighbors.previous ? field("Previous lesson", input.neighbors.previous) : "",
+    input.neighbors.next ? field("Next lesson", input.neighbors.next) : "",
     `</outline_row id="${nonce}">`,
     "",
     "<confirmed_constraints>",
-    ...(input.constraints.length ? input.constraints.map((c) => `- ${c}`) : ["(none)"]),
+    ...(input.constraints.length ? input.constraints.map((c) => `- ${clean(c)}`) : ["(none)"]),
     "</confirmed_constraints>",
-    "",
-    input.neighbors.previous ? `Previous lesson: ${input.neighbors.previous}` : "",
-    input.neighbors.next ? `Next lesson: ${input.neighbors.next}` : "",
   ]
     .filter((l, i, a) => l !== "" || a[i - 1] !== "")
     .join("\n");

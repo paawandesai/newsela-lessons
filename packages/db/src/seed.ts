@@ -23,7 +23,7 @@ const codes = allCodes().map((c) => ({ ...c, officialUrl: officialUrl(c.code) })
 await db.insert(standards).values(codes).onConflictDoNothing({ target: standards.code });
 console.log(`seeded ${codes.length} standards codes`);
 
-// Prompt v1. Later versions are created in the app and never overwrite this row.
+// Prompt v1. Later versions are added as new rows and never overwrite this one.
 await db
   .insert(promptVersions)
   .values({ version: 1, systemPrompt: DEFAULT_SYSTEM_PROMPT, notes: "Initial prompt" })

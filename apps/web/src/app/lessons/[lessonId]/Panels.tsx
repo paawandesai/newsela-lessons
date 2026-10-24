@@ -6,7 +6,7 @@ import { approveAction, runChecksAction, sendBackAction } from "./actions";
 
 const TONE = { error: "badge-error", warning: "badge-warning", info: "badge-info" } as const;
 
-export function ChecksPanel({ lessonId, initial }: { lessonId: string; initial: Flag[] }) {
+export function ChecksPanel({ lessonId, initial, canRun }: { lessonId: string; initial: Flag[]; canRun: boolean }) {
   const [state, action, pending] = useActionState(runChecksAction, undefined);
   const flags = state?.flags ?? initial;
   return (
@@ -24,12 +24,14 @@ export function ChecksPanel({ lessonId, initial }: { lessonId: string; initial: 
           ))}
         </ul>
       )}
-      <form action={action}>
-        <input type="hidden" name="lessonId" value={lessonId} />
-        <button className="btn btn-sm" type="submit" disabled={pending}>
-          {pending ? "Checking…" : "Re-run checks on current text"}
-        </button>
-      </form>
+      {canRun && (
+        <form action={action}>
+          <input type="hidden" name="lessonId" value={lessonId} />
+          <button className="btn btn-sm" type="submit" disabled={pending}>
+            {pending ? "Checking…" : "Re-run checks on current text"}
+          </button>
+        </form>
+      )}
       <p className="muted small">{state?.checkedAt ? "Checked just now." : "Shown: checks from generation. Edits save within a few seconds."}</p>
     </section>
   );
@@ -44,8 +46,21 @@ export function ApprovalPanel({ lessonId, canApprove, canSendBack, approved }: {
       {msg?.error && <p role="alert" className="alert alert-error">{msg.error}</p>}
       {msg?.ok && <p role="status" className="muted">{msg.ok}</p>}
       {canApprove && !approved && (
-        <form action={approve}>
+        <form action={approve} className="stack">
           <input type="hidden" name="lessonId" value={lessonId} />
+          {aState?.confirm && (
+            <>
+              <ul className="flag-list">
+                {aState.confirm.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+              <label className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+                <input type="checkbox" name="confirmQuotes" value="yes" required />
+                <span>I checked each quoted passage: it is original, or it is from a source we have rights to.</span>
+              </label>
+            </>
+          )}
           <button className="btn btn-approve" type="submit" disabled={approving}>
             {approving ? "Approving…" : "Approve this version"}
           </button>

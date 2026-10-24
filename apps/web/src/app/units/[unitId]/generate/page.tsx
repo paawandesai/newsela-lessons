@@ -41,7 +41,7 @@ export default async function GeneratePage({ params }: { params: Promise<{ unitI
   const user = await requireUser();
   const data = await getGenerationStatus(unitId);
   if (!data) notFound();
-  const { unit, run, prompt, runSpend, lessons } = data;
+  const { unit, run, prompt, runSpend, unitSpend, unitCap, lessons } = data;
 
   const total = lessons.length;
   const done = lessons.filter((l) => ["in_review", "approved", "flagged"].includes(l.status)).length;
@@ -103,16 +103,14 @@ export default async function GeneratePage({ params }: { params: Promise<{ unitI
             <div className="muted">Failed a check or the call failed</div>
           </div>
           <div className="card card-pad">
-            <div className="muted">Spend this run</div>
+            <div className="muted">Spend on this unit</div>
             <div style={{ fontSize: 24, fontWeight: 700 }}>
-              ${runSpend.toFixed(2)}{" "}
-              {run && (
-                <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>
-                  of ${Number(run.capUsd).toFixed(0)} cap
-                </span>
-              )}
+              ${unitSpend.toFixed(2)}{" "}
+              <span className="muted" style={{ fontSize: 14, fontWeight: 500 }}>
+                of ${unitCap.toFixed(0)} cap
+              </span>
             </div>
-            <div className="muted">Stops at the cap</div>
+            <div className="muted">Latest run ${runSpend.toFixed(2)}. All runs, regenerations and AI suggestions count, and work stops at the cap.</div>
           </div>
           <div className="card card-pad">
             <div className="muted">Prompt and model</div>
